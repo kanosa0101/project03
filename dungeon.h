@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <QPoint>
+#include <stdexcept>
 
 enum class GameMode {
     AUTO,   // 自动模式
@@ -13,6 +14,11 @@ enum class GameState {
     PLAYING,    // 游戏中
     WON,        // 胜利
     LOST        // 失败
+};
+
+class DungeonException : public std::runtime_error {
+public:
+    explicit DungeonException(const std::string& message) : std::runtime_error(message) {}
 };
 
 class Dungeon {
@@ -65,6 +71,9 @@ private:
     void initializeDp();
     void solveDp();
     void updateGameState();
+    void generateFallbackMap();
+    void validateMapSize(int rows, int cols) const;
+    void validateMapData() const;
 };
 
 #endif // DUNGEON_H

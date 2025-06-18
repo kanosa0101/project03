@@ -5,7 +5,15 @@
 #include <QColor>
 #include <QPoint>
 #include <vector>
+#include <stdexcept>
 #include "dungeon.h"
+
+
+
+class MapModelException : public std::runtime_error {
+public:
+    explicit MapModelException(const std::string& message) : std::runtime_error(message) {}
+};
 
 class DungeonMapModel : public QAbstractTableModel {
     Q_OBJECT
@@ -33,6 +41,8 @@ private:
     bool isInPath(int row, int col, const std::vector<QPoint>& path) const;
     QColor getBackgroundColor(int row, int col) const;
     QColor getBorderColor(int row, int col) const;
+    void validateIndex(const QModelIndex& index) const;
+    void validateDungeon() const;
 };
 
 #endif // DUNGEONMAPMODEL_H

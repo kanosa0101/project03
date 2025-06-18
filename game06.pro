@@ -10,16 +10,18 @@ CONFIG += c++17
 
 SOURCES += \
     dungeon.cpp \
-    dungeonitemdelegate.cpp \
     dungeonmapmodel.cpp \
+    dungeontableview.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    maptablewindow.cpp
 
 HEADERS += \
     dungeon.h \
     dungeonmapmodel.h \
     dungeontableview.h \
-    mainwindow.h
+    mainwindow.h \
+    maptablewindow.h
 
 FORMS += \
     mainwindow.ui
