@@ -1,7 +1,6 @@
 #include "mainwindow.h"
 #include <QApplication>
 #include <sstream>
-#include <QRegularExpression>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), dungeon(5, 5), pathIndex(0), currentMode(GameMode::AUTO) {
@@ -25,15 +24,14 @@ void MainWindow::setupUI() {
     stackedWidget->setCurrentWidget(menuWidget);
 
     setWindowTitle("地下城游戏 - 骑士拯救公主");
-    setMinimumSize(700, 600);
-    setFocusPolicy(Qt::StrongFocus);  // 确保能接收键盘事件
+    setMinimumSize(800, 700);
+    setFocusPolicy(Qt::StrongFocus);
 }
 
 void MainWindow::setupMainMenu() {
     menuWidget = new QWidget();
     menuLayout = new QVBoxLayout(menuWidget);
 
-    // 添加间距
     menuLayout->addStretch();
 
     // 游戏标题
@@ -62,7 +60,6 @@ void MainWindow::setupMainMenu() {
 
     menuLayout->addStretch();
 
-    // 设置按钮间距
     menuLayout->setSpacing(15);
     menuLayout->setContentsMargins(100, 50, 100, 50);
 
@@ -83,13 +80,13 @@ void MainWindow::setupGameInterface() {
 
     controlLayout->addWidget(new QLabel("行数:"));
     rowsSpinBox = new QSpinBox();
-    rowsSpinBox->setRange(3, 15);
+    rowsSpinBox->setRange(3, 100);  // 支持最大100
     rowsSpinBox->setValue(5);
     controlLayout->addWidget(rowsSpinBox);
 
     controlLayout->addWidget(new QLabel("列数:"));
     colsSpinBox = new QSpinBox();
-    colsSpinBox->setRange(3, 15);
+    colsSpinBox->setRange(3, 100);  // 支持最大100
     colsSpinBox->setValue(5);
     controlLayout->addWidget(colsSpinBox);
 
@@ -142,11 +139,14 @@ void MainWindow::setupGameInterface() {
     statusLayout->addStretch();
     gameLayout->addLayout(statusLayout);
 
-    // 地图显示区域
-    QWidget *mapWidget = new QWidget();
-    mapLayout = new QGridLayout(mapWidget);
-    mapLayout->setSpacing(2);
-    gameLayout->addWidget(mapWidget);
+    // 地图显示区域 - 使用TableView
+    mapModel = new DungeonMapModel(this);
+    mapTableView = new DungeonTableView(this);
+    mapTableView->setModel(mapModel);
+
+    // 设置表格视图的尺寸策略
+    mapTableView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    gameLayout->addWidget(mapTableView, 1); // 设置拉伸因子
 
     // 信息显示
     infoText = new QTextEdit();
@@ -183,8 +183,7 @@ void MainWindow::showGameRules() {
         "• 绿色房间：增益房间(+健康值)\n"
         "• 红色房间：伤害房间(-健康值)\n"
         "• 灰色房间：中性房间(无影响)\n"
-        "• 蓝色边框：起点位置\n"
-        "• 红色边框：终点位置\n"
+        "• 蓝色边框：起点和终点位置\n"
         "• 橙色背景：走过的路径\n\n"
 
         "🎯 移动规则：\n"
@@ -194,7 +193,7 @@ void MainWindow::showGameRules() {
         "• 到达终点且健康值>0时获胜\n\n"
 
         "🎲 操作说明：\n"
-        "1. 设置地图尺寸(3×3到15×15)\n"
+        "1. 设置地图尺寸(3×3到100×100)\n"
         "2. 点击'生成地图'创建随机地下城\n"
         "3. 选择游戏模式\n"
         "4. 点击'开始'进行游戏";
@@ -204,61 +203,19 @@ void MainWindow::showGameRules() {
 
 void MainWindow::startGame() {
     stackedWidget->setCurrentWidget(gameWidget);
-    generateNewMap();  // 自动生成一个地图
+    generateNewMap();
 }
 
 void MainWindow::returnToMenu() {
-    // 重置游戏状态
     pathTimer->stop();
     clearPathDisplay();
     stackedWidget->setCurrentWidget(menuWidget);
 }
 
 void MainWindow::updateMapDisplay() {
-    // 清理现有标签
-    for (auto& row : mapLabels) {
-        for (auto& label : row) {
-            mapLayout->removeWidget(label);
-            delete label;
-        }
-    }
-    mapLabels.clear();
-
-    int rows = dungeon.getRows();
-    int cols = dungeon.getCols();
-    const auto& map = dungeon.getMap();
-
-    mapLabels.resize(rows, std::vector<QLabel*>(cols));
-
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            QLabel* label = new QLabel(QString::number(map[i][j]));
-            label->setAlignment(Qt::AlignCenter);
-            label->setMinimumSize(50, 50);
-            label->setStyleSheet("border: 2px solid black; font-weight: bold; font-size: 14px;");
-
-            // 根据值设置颜色
-            if (map[i][j] > 0) {
-                label->setStyleSheet(label->styleSheet() + "background-color: #2ECC71; color: white;");
-            } else if (map[i][j] < 0) {
-                label->setStyleSheet(label->styleSheet() + "background-color: #E74C3C; color: white;");
-            } else {
-                label->setStyleSheet(label->styleSheet() + "background-color: #95A5A6; color: white;");
-            }
-
-            // 标记起点和终点
-            if (i == 0 && j == 0) {
-                label->setStyleSheet(label->styleSheet() + "border-color: #3498DB; border-width: 4px;");
-            } else if (i == rows-1 && j == cols-1) {
-                label->setStyleSheet(label->styleSheet() + "border-color: #3498DB; border-width: 4px;");
-            }
-
-            mapLabels[i][j] = label;
-            mapLayout->addWidget(label, i, j);
-        }
-    }
+    mapModel->setDungeon(&dungeon);
+    mapTableView->updateCellSize();
 }
-
 
 void MainWindow::generateNewMap() {
     int rows = rowsSpinBox->value();
@@ -279,7 +236,7 @@ void MainWindow::generateNewMap() {
     // 显示地图信息
     std::ostringstream info;
     info << "地图尺寸: " << rows << "×" << cols << "\n";
-    info << "🔵 蓝色边框: 起点(骑士) | 🔴 红色边框: 终点(公主)\n";
+    info << "🔵 蓝色边框: 起点(骑士) | 🔵 蓝色边框: 终点(公主)\n";
     info << "🟢 绿色: 增益房间 | 🔴 红色: 伤害房间 | ⚫ 灰色: 中性房间";
     infoText->setText(QString::fromStdString(info.str()));
 }
@@ -300,12 +257,12 @@ void MainWindow::startAutoMode() {
     clearPathDisplay();
     pathIndex = 0;
     startBtn->setEnabled(false);
-    pathTimer->start(800);
+    pathTimer->start(500); // 加快动画速度
 }
 
 void MainWindow::startManualMode() {
     currentMode = GameMode::MANUAL;
-    dungeon.resetGame(100);  // 默认初始健康值100
+    dungeon.resetGame(100);
 
     updateManualDisplay();
 
@@ -319,7 +276,7 @@ void MainWindow::startManualMode() {
     info << "目标: 到达终点且健康值 > 0";
     infoText->setText(QString::fromStdString(info.str()));
 
-    setFocus();  // 确保能接收键盘事件
+    setFocus();
 }
 
 void MainWindow::resetManualGame() {
@@ -339,20 +296,7 @@ void MainWindow::resetManualGame() {
 }
 
 void MainWindow::updateManualDisplay() {
-    updateMapDisplay();
-
-    // 显示玩家路径（橙色背景）
-    const auto& playerPath = dungeon.getPlayerPath();
-    for (const auto& pos : playerPath) {
-        QLabel* label = mapLabels[pos.y()][pos.x()];
-        QString currentStyle = label->styleSheet();
-        // 使用橙色背景
-        currentStyle = currentStyle.replace(
-            QRegularExpression("background-color: [^;]+;"),
-            "background-color: #F39C12;"
-            );
-        label->setStyleSheet(currentStyle);
-    }
+    mapModel->setPlayerPath(dungeon.getPlayerPath());
 
     // 更新状态显示
     QPoint playerPos = dungeon.getPlayerPosition();
@@ -407,23 +351,16 @@ void MainWindow::showNextPathStep() {
         return;
     }
 
-    QPoint pos = autoPath[pathIndex];
-    QLabel* label = mapLabels[pos.y()][pos.x()];
-
-    // 设置橙色背景显示路径
-    QString currentStyle = label->styleSheet();
-    currentStyle = currentStyle.replace(
-        QRegularExpression("background-color: [^;]+;"),
-        "background-color: #F39C12;"
-        );
-    label->setStyleSheet(currentStyle);
+    // 创建当前路径（到目前为止的所有步骤）
+    std::vector<QPoint> currentPath(autoPath.begin(), autoPath.begin() + pathIndex + 1);
+    mapModel->setAutoPath(currentPath);
 
     pathIndex++;
 }
 
 void MainWindow::clearPathDisplay() {
     pathTimer->stop();
-    updateMapDisplay();
+    mapModel->clearPaths();
 }
 
 void MainWindow::showAutoResults() {

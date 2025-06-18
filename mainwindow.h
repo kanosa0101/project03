@@ -3,7 +3,6 @@
 
 #include <QMainWindow>
 #include <QStackedWidget>
-#include <QGridLayout>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -18,6 +17,8 @@
 #include <QPoint>
 #include <vector>
 #include "dungeon.h"
+#include "dungeonmapmodel.h"
+#include "dungeontableview.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -61,7 +62,6 @@ private:
     QWidget *gameWidget;
     QVBoxLayout *gameLayout;
     QHBoxLayout *controlLayout;
-    QGridLayout *mapLayout;
 
     QSpinBox *rowsSpinBox;
     QSpinBox *colsSpinBox;
@@ -81,8 +81,9 @@ private:
     // 堆叠窗口
     QStackedWidget *stackedWidget;
 
-    // 地图显示标签
-    std::vector<std::vector<QLabel*>> mapLabels;
+    // 地图显示组件 - 使用TableView替代QGridLayout
+    DungeonTableView *mapTableView;
+    DungeonMapModel *mapModel;
 
     // 游戏逻辑
     Dungeon dungeon;
